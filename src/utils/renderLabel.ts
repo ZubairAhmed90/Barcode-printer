@@ -54,65 +54,66 @@ export function renderLabelToCanvas(opts: {
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
 
-  const paddingX = Math.round(width * 0.06)
-  const topBand = Math.round(height * 0.22)
-  const bottomBand = opts.price.trim() ? Math.round(height * 0.18) : Math.round(height * 0.08)
-  const barcodeAreaTop = topBand
-  const barcodeAreaBottom = height - bottomBand
-  const barcodeAreaHeight = Math.max(40, barcodeAreaBottom - barcodeAreaTop)
+  const padX = Math.round(width * 0.06)
+  const padY = Math.round(height * 0.05)
+  const hasPrice = Boolean(opts.price.trim())
+
+  // Compact bands so name + barcode digits + optional price all fit
+  const nameBand = Math.round(height * 0.16)
+  const priceBand = hasPrice ? Math.round(height * 0.14) : Math.round(height * 0.03)
+  const barcodeTop = padY + nameBand
+  const barcodeBottom = height - padY - priceBand
+  const barcodeAreaHeight = Math.max(48, barcodeBottom - barcodeTop)
 
   // Product name
   const name = opts.productName.trim() || 'Untitled'
-  let nameSize = Math.min(22, Math.round(height * 0.09))
+  let nameSize = Math.min(24, Math.round(height * 0.085))
   ctx.font = `600 ${nameSize}px "IBM Plex Sans", system-ui, sans-serif`
-  while (nameSize > 10 && ctx.measureText(name).width > width - paddingX * 2) {
+  while (nameSize > 10 && ctx.measureText(name).width > width - padX * 2) {
     nameSize -= 1
     ctx.font = `600 ${nameSize}px "IBM Plex Sans", system-ui, sans-serif`
   }
-  ctx.fillText(name, width / 2, topBand / 2, width - paddingX * 2)
+  ctx.fillText(name, width / 2, padY + nameBand / 2, width - padX * 2)
 
-  // Barcode (temporary canvas, then draw centered into label)
+  // Barcode — bars sized so bars + human-readable digits fit the area
   const barcodeCanvas = document.createElement('canvas')
-  const barcodeBarHeight = Math.round(barcodeAreaHeight * 0.62)
-  const fontSize = Math.max(10, Math.round(height * 0.055))
+  const fontSize = Math.max(11, Math.round(height * 0.055))
+  const barcodeBarHeight = Math.max(
+    24,
+    Math.round(barcodeAreaHeight * 0.55),
+  )
 
   renderBarcodeToCanvas(barcodeCanvas, opts.code, opts.format, {
     width: 2,
     height: barcodeBarHeight,
     displayValue: true,
     fontSize,
-    margin: 4,
+    margin: 2,
   })
 
-  const maxBarcodeWidth = width - paddingX * 2
+  const maxBarcodeWidth = width - padX * 2
   const maxBarcodeHeight = barcodeAreaHeight
   const scale = Math.min(
     maxBarcodeWidth / barcodeCanvas.width,
     maxBarcodeHeight / barcodeCanvas.height,
-    1,
   )
   const drawW = barcodeCanvas.width * scale
   const drawH = barcodeCanvas.height * scale
   const drawX = (width - drawW) / 2
-  const drawY = barcodeAreaTop + (barcodeAreaHeight - drawH) / 2
+  const drawY = barcodeTop + (barcodeAreaHeight - drawH) / 2
   ctx.drawImage(barcodeCanvas, drawX, drawY, drawW, drawH)
 
   // Price
-  if (opts.price.trim()) {
-    const priceSize = Math.min(20, Math.round(height * 0.08))
+  if (hasPrice) {
+    const priceSize = Math.min(20, Math.round(height * 0.075))
     ctx.font = `700 ${priceSize}px "IBM Plex Sans", system-ui, sans-serif`
     ctx.fillText(
       opts.price.trim(),
       width / 2,
-      height - bottomBand / 2,
-      width - paddingX * 2,
+      height - padY - priceBand / 2,
+      width - padX * 2,
     )
   }
-
-  // Thin border for visual label edge
-  ctx.strokeStyle = '#d4d4d4'
-  ctx.lineWidth = 1
-  ctx.strokeRect(0.5, 0.5, width - 1, height - 1)
 
   return canvas
 }

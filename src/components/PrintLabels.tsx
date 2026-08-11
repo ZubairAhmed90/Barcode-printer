@@ -1,6 +1,6 @@
-import { useEffect, useRef, type CSSProperties } from 'react'
-import JsBarcode from 'jsbarcode'
+import { useEffect, useState, type CSSProperties } from 'react'
 import type { LabelItem } from '../types'
+import { renderLabelToCanvas } from '../utils/renderLabel'
 
 interface PrintLabelsProps {
   items: LabelItem[]
@@ -9,60 +9,44 @@ interface PrintLabelsProps {
 }
 
 function PrintLabel({ item }: { item: LabelItem }) {
-  const svgRef = useRef<SVGSVGElement>(null)
-  const hasPrice = Boolean(item.price.trim())
+  const [src, setSrc] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!svgRef.current) return
-
-    // Keep barcode bars short enough that the human-readable digits
-    // still fit under the name (and optional price) inside the label.
-    const barHeight = Math.max(28, Math.round(item.heightIn * 28))
-    const fontSize = Math.max(9, Math.round(item.heightIn * 7))
+    let revoked = false
+    let objectUrl: string | null = null
 
     try {
-      JsBarcode(svgRef.current, item.code, {
-        format: item.format,
-        width: 1.5,
-        height: barHeight,
-        displayValue: true,
-        fontSize,
-        margin: 2,
-        background: '#ffffff',
-        lineColor: '#000000',
-      })
+      const canvas = renderLabelToCanvas(item)
+      objectUrl = canvas.toDataURL('image/png')
+      if (!revoked) setSrc(objectUrl)
     } catch {
-      // ignore
+      if (!revoked) setSrc(null)
     }
-  }, [item.code, item.format, item.heightIn])
+
+    return () => {
+      revoked = true
+    }
+  }, [item])
 
   return (
     <div
-      className="print-label flex flex-col items-center justify-between bg-white"
+      className="print-label"
       style={
         {
-          ['--label-w' as string]: `${item.widthIn}in`,
-          ['--label-h' as string]: `${item.heightIn}in`,
           width: `${item.widthIn}in`,
           height: `${item.heightIn}in`,
         } as CSSProperties
       }
     >
-      <p className="print-label-name w-full shrink-0 truncate text-center font-semibold">
-        {item.productName}
-      </p>
-
-      <div className="print-label-barcode flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden">
-        <svg ref={svgRef} className="print-barcode-svg max-h-full max-w-full" />
-      </div>
-
-      {hasPrice ? (
-        <p className="print-label-price w-full shrink-0 text-center font-bold">
-          {item.price.trim()}
-        </p>
-      ) : (
-        <span className="print-label-spacer shrink-0" />
-      )}
+      {src ? (
+        <img
+          src={src}
+          alt={item.productName}
+          className="print-label-image"
+          width={Math.round(item.widthIn * 203)}
+          height={Math.round(item.heightIn * 203)}
+        />
+      ) : null}
     </div>
   )
 }
