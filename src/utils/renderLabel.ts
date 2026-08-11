@@ -31,9 +31,38 @@ export function renderBarcodeToCanvas(
   })
 }
 
+function buildSizedBarcode(
+  code: string,
+  format: BarcodeFormat,
+  barHeight: number,
+  targetWidth: number,
+): HTMLCanvasElement {
+  const canvas = document.createElement('canvas')
+  let moduleWidth = 1.5
+
+  // Increase module width until barcode is close to the target sticker width
+  for (let w = 1.5; w <= 5; w += 0.25) {
+    renderBarcodeToCanvas(canvas, code, format, {
+      width: w,
+      height: barHeight,
+      displayValue: false,
+      margin: 1,
+    })
+    moduleWidth = w
+    if (canvas.width >= targetWidth * 0.92) break
+  }
+
+  renderBarcodeToCanvas(canvas, code, format, {
+    width: moduleWidth,
+    height: barHeight,
+    displayValue: false,
+    margin: 1,
+  })
+  return canvas
+}
+
 /**
- * Compact label for Zebra LP2824:
- * tight top, normal-width barcode (not stretched), short bars, code under it.
+ * Fills the sticker edge-to-edge with small even padding.
  */
 export function renderLabelToCanvas(opts: {
   productName: string
@@ -58,66 +87,70 @@ export function renderLabelToCanvas(opts: {
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
 
-  const padX = Math.round(width * 0.06)
-  // Almost no top padding — start content immediately
-  const padTop = Math.max(4, Math.round(height * 0.02))
-  const padBottom = Math.max(6, Math.round(height * 0.04))
-  const hasPrice = Boolean(opts.price.trim())
+  const padX = Math.max(6, Math.round(width * 0.035))
+  const padY = Math.max(4, Math.round(height * 0.035))
   const innerW = width - padX * 2
+  const innerH = height - padY * 2
+  const hasPrice = Boolean(opts.price.trim())
 
-  let y = padTop
+  const nameBand = Math.round(innerH * (hasPrice ? 0.17 : 0.18))
+  const priceBand = hasPrice ? Math.round(innerH * 0.14) : 0
+  const codeBand = Math.round(innerH * 0.13)
+  const gap = Math.max(2, Math.round(innerH * 0.02))
+  const barcodeBand = Math.max(
+    28,
+    innerH - nameBand - priceBand - codeBand - gap * (hasPrice ? 3 : 2),
+  )
 
-  // —— Product name ——
+  let y = padY
+
+  // Name
   const name = opts.productName.trim() || 'Untitled'
-  let nameSize = Math.max(12, Math.min(18, Math.round(height * 0.13)))
+  let nameSize = Math.max(12, Math.min(20, Math.round(nameBand * 0.75)))
   ctx.font = `600 ${nameSize}px "IBM Plex Sans", system-ui, sans-serif`
-  while (nameSize > 10 && ctx.measureText(name).width > innerW) {
+  while (nameSize > 9 && ctx.measureText(name).width > innerW) {
     nameSize -= 1
     ctx.font = `600 ${nameSize}px "IBM Plex Sans", system-ui, sans-serif`
   }
-  const nameH = Math.round(nameSize * 1.15)
-  ctx.fillText(name, width / 2, y + nameH / 2, innerW)
-  y += nameH + 2
+  ctx.fillText(name, width / 2, y + nameBand / 2, innerW)
+  y += nameBand + gap
 
-  // —— Price (optional) ——
+  // Price
   if (hasPrice) {
-    const priceSize = Math.max(11, Math.min(16, Math.round(height * 0.11)))
+    const priceSize = Math.max(11, Math.min(18, Math.round(priceBand * 0.72)))
     ctx.font = `700 ${priceSize}px "IBM Plex Sans", system-ui, sans-serif`
-    const priceH = Math.round(priceSize * 1.1)
-    ctx.fillText(opts.price.trim(), width / 2, y + priceH / 2, innerW)
-    y += priceH + 2
+    ctx.fillText(opts.price.trim(), width / 2, y + priceBand / 2, innerW)
+    y += priceBand + gap
   }
 
-  // —— Barcode: natural proportions, short bars, centered (not stretched) ——
-  const codeSize = Math.max(9, Math.min(12, Math.round(height * 0.09)))
-  const codeH = Math.round(codeSize * 1.2)
-  const gap = 3
-  const maxBarH = Math.max(
-    22,
-    Math.min(40, height - y - codeH - gap - padBottom),
+  // Barcode — sized to fill the sticker width, short enough for the band
+  const barHeight = Math.round(barcodeBand * 0.9)
+  const barcodeCanvas = buildSizedBarcode(
+    opts.code,
+    opts.format,
+    barHeight,
+    innerW,
   )
 
-  const barcodeCanvas = document.createElement('canvas')
-  renderBarcodeToCanvas(barcodeCanvas, opts.code, opts.format, {
-    width: 2,
-    height: maxBarH,
-    displayValue: false,
-    margin: 2,
-  })
-
-  // Uniform scale only — never stretch wider than natural size
-  const maxW = innerW
-  const scale = Math.min(1, maxW / barcodeCanvas.width)
+  const scale = Math.min(
+    innerW / barcodeCanvas.width,
+    barcodeBand / barcodeCanvas.height,
+  )
   const drawW = Math.round(barcodeCanvas.width * scale)
   const drawH = Math.round(barcodeCanvas.height * scale)
-  const drawX = Math.round((width - drawW) / 2)
+  ctx.drawImage(
+    barcodeCanvas,
+    Math.round((width - drawW) / 2),
+    y + Math.round((barcodeBand - drawH) / 2),
+    drawW,
+    drawH,
+  )
+  y += barcodeBand + gap
 
-  ctx.drawImage(barcodeCanvas, drawX, y, drawW, drawH)
-  y += drawH + gap
-
-  // —— Code digits ——
+  // Code
+  const codeSize = Math.max(9, Math.min(14, Math.round(codeBand * 0.72)))
   ctx.font = `500 ${codeSize}px "IBM Plex Sans", ui-monospace, monospace`
-  ctx.fillText(opts.code, width / 2, y + codeH / 2, innerW)
+  ctx.fillText(opts.code, width / 2, y + codeBand / 2, innerW)
 
   return canvas
 }
