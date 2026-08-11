@@ -61,10 +61,39 @@
     width: var(--label-w, 2.2in);
     height: var(--label-h, 2in);
     box-sizing: border-box;
-    padding: 0.12in 0.1in;
+    padding: 0.1in 0.08in;
     page-break-after: always;
     break-after: page;
     overflow: hidden;
+  }
+
+  .print-label-name {
+    font-size: 0.13in;
+    line-height: 1.15;
+    max-height: 0.3in;
+  }
+
+  .print-label-price {
+    font-size: 0.12in;
+    line-height: 1.15;
+    max-height: 0.24in;
+  }
+
+  .print-label-spacer {
+    display: block;
+    height: 0.04in;
+  }
+
+  .print-label-barcode {
+    min-height: 0;
+  }
+
+  .print-barcode-svg {
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 100%;
   }
 
   .print-label:last-child {

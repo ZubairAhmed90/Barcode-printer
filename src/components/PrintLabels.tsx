@@ -10,35 +10,58 @@ interface PrintLabelsProps {
 
 function PrintLabel({ item }: { item: LabelItem }) {
   const svgRef = useRef<SVGSVGElement>(null)
+  const hasPrice = Boolean(item.price.trim())
 
   useEffect(() => {
     if (!svgRef.current) return
+
+    // Keep barcode bars short enough that the human-readable digits
+    // still fit under the name (and optional price) inside the label.
+    const barHeight = Math.max(28, Math.round(item.heightIn * 28))
+    const fontSize = Math.max(9, Math.round(item.heightIn * 7))
+
     try {
       JsBarcode(svgRef.current, item.code, {
         format: item.format,
-        width: 2,
-        height: 64,
+        width: 1.5,
+        height: barHeight,
         displayValue: true,
-        fontSize: 14,
-        margin: 4,
+        fontSize,
+        margin: 2,
         background: '#ffffff',
         lineColor: '#000000',
       })
     } catch {
       // ignore
     }
-  }, [item.code, item.format])
+  }, [item.code, item.format, item.heightIn])
 
   return (
-    <div className="print-label flex flex-col items-center justify-between break-after-page bg-white">
-      <p className="w-full truncate text-center text-base font-semibold">
+    <div
+      className="print-label flex flex-col items-center justify-between bg-white"
+      style={
+        {
+          ['--label-w' as string]: `${item.widthIn}in`,
+          ['--label-h' as string]: `${item.heightIn}in`,
+          width: `${item.widthIn}in`,
+          height: `${item.heightIn}in`,
+        } as CSSProperties
+      }
+    >
+      <p className="print-label-name w-full shrink-0 truncate text-center font-semibold">
         {item.productName}
       </p>
-      <svg ref={svgRef} />
-      {item.price.trim() ? (
-        <p className="w-full text-center text-base font-bold">{item.price}</p>
+
+      <div className="print-label-barcode flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden">
+        <svg ref={svgRef} className="print-barcode-svg max-h-full max-w-full" />
+      </div>
+
+      {hasPrice ? (
+        <p className="print-label-price w-full shrink-0 text-center font-bold">
+          {item.price.trim()}
+        </p>
       ) : (
-        <span />
+        <span className="print-label-spacer shrink-0" />
       )}
     </div>
   )
