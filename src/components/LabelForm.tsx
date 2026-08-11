@@ -72,21 +72,11 @@ export function LabelForm({
           inputMode={draft.format === 'CODE128' ? 'text' : 'numeric'}
         />
         {error && <p className="text-sm text-red-600">{error}</p>}
-        {!error && draft.format === 'CODE128' && (
-          <p className="text-xs text-stone-500">
-            Code128 encodes <span className="font-medium">name|price|SKU</span> —
-            scanning returns all three fields.
-          </p>
-        )}
         {!error && draft.format === 'EAN13' && (
-          <p className="text-xs text-stone-400">
-            EAN-13: 12 digits only (cannot store name/price — use Code128 for that).
-          </p>
+          <p className="text-xs text-stone-400">EAN-13: enter 12 digits</p>
         )}
         {!error && draft.format === 'UPC' && (
-          <p className="text-xs text-stone-400">
-            UPC-A: 11 digits only (cannot store name/price — use Code128 for that).
-          </p>
+          <p className="text-xs text-stone-400">UPC-A: enter 11 digits</p>
         )}
       </div>
 

@@ -21,7 +21,7 @@ export function LabelPreview({
   heightIn,
 }: LabelPreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const valid = canGenerateBarcode(format, code, productName, price)
+  const valid = canGenerateBarcode(format, code)
 
   useEffect(() => {
     const el = canvasRef.current
