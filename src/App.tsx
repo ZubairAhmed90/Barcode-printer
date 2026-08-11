@@ -1,10 +1,17 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { AuthGate } from './components/AuthGate'
 import { BatchList } from './components/BatchList'
 import { LabelForm } from './components/LabelForm'
 import { LabelPreview } from './components/LabelPreview'
 import type { LabelDraft, LabelDimensions, LabelItem } from './types'
 import { downloadAllAsZip } from './utils/download'
 import { printLabelsInWindow } from './utils/print'
+import {
+  isUnlocked,
+  loadSavedData,
+  lockSession,
+  saveAppData,
+} from './utils/storage'
 import { validateBarcodeInput } from './utils/validation'
 
 // Zebra LP/TLP 2824: max print width 2.2" @ 203 DPI — short stock is typical
@@ -23,13 +30,13 @@ function createId(): string {
 
 function clampSize(next: LabelDimensions): LabelDimensions {
   return {
-    // LP2824 max printable width is 2.2"
     widthIn: Math.min(2.2, Math.max(0.5, next.widthIn)),
     heightIn: Math.min(6, Math.max(0.38, next.heightIn)),
   }
 }
 
 export default function App() {
+  const [unlocked, setUnlocked] = useState(() => isUnlocked())
   const [draft, setDraft] = useState<LabelDraft>({
     productName: '',
     price: '',
@@ -42,6 +49,35 @@ export default function App() {
   const [showSize, setShowSize] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'error'>('idle')
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    if (!unlocked) return
+    const saved = loadSavedData()
+    if (saved) {
+      setItems(saved.items)
+      if (typeof saved.nextSku === 'number') setNextSku(saved.nextSku)
+      if (saved.size?.widthIn && saved.size?.heightIn) {
+        setSize(clampSize(saved.size))
+      }
+    }
+    setLoaded(true)
+  }, [unlocked])
+
+  // Auto-save whenever labels / settings change (after initial load)
+  useEffect(() => {
+    if (!unlocked || !loaded) return
+    try {
+      saveAppData({ items, nextSku, size })
+      setSaveStatus('saved')
+      const t = window.setTimeout(() => setSaveStatus('idle'), 1500)
+      return () => window.clearTimeout(t)
+    } catch {
+      setSaveStatus('error')
+    }
+  }, [items, nextSku, size, unlocked, loaded])
 
   const previewCode = draft.sku.trim() || String(nextSku)
 
@@ -99,18 +135,28 @@ export default function App() {
     setSubmitError(null)
   }
 
-  async function handleDownloadAll() {
+  function handleSave() {
+    try {
+      saveAppData({ items, nextSku, size })
+      setSaveStatus('saved')
+      window.setTimeout(() => setSaveStatus('idle'), 1500)
+    } catch {
+      setSaveStatus('error')
+    }
+  }
+
+  async function handleDownloadAll(list: LabelItem[]) {
     setDownloading(true)
     try {
-      await downloadAllAsZip(items)
+      await downloadAllAsZip(list)
     } finally {
       setDownloading(false)
     }
   }
 
-  async function handlePrint() {
+  async function handlePrint(list: LabelItem[]) {
     try {
-      await printLabelsInWindow(items, size.widthIn, size.heightIn)
+      await printLabelsInWindow(list, size.widthIn, size.heightIn)
     } catch (err) {
       setSubmitError(
         err instanceof Error ? err.message : 'Could not open print window.',
@@ -118,17 +164,36 @@ export default function App() {
     }
   }
 
+  function handleLock() {
+    lockSession()
+    setUnlocked(false)
+    setLoaded(false)
+  }
+
+  if (!unlocked) {
+    return <AuthGate onUnlocked={() => setUnlocked(true)} />
+  }
+
   return (
     <div className="min-h-screen text-stone-900">
       <div className="app-shell mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        <header className="mb-8 no-print">
-          <p className="font-display text-3xl font-bold tracking-tight text-stone-900 sm:text-4xl">
-            LabelPress
-          </p>
-          <p className="mt-1 max-w-xl text-stone-600">
-            Generate barcode labels in your browser. Preview, batch, download
-            PNGs or a ZIP — nothing is uploaded.
-          </p>
+        <header className="mb-8 flex flex-wrap items-start justify-between gap-4 no-print">
+          <div>
+            <p className="font-display text-3xl font-bold tracking-tight text-stone-900 sm:text-4xl">
+              LabelPress
+            </p>
+            <p className="mt-1 max-w-xl text-stone-600">
+              Generate barcode labels in your browser. Preview, batch, save, and
+              print — nothing is uploaded.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleLock}
+            className="rounded-md border border-stone-300 bg-white px-3 py-1.5 text-sm font-medium text-stone-700 transition hover:bg-stone-50"
+          >
+            Lock
+          </button>
         </header>
 
         <div className="grid gap-8 lg:grid-cols-2 no-print">
@@ -244,10 +309,14 @@ export default function App() {
           <div className="rounded-xl border border-stone-200 bg-white/80 p-5 shadow-sm backdrop-blur sm:p-6">
             <BatchList
               items={items}
+              search={search}
+              onSearchChange={setSearch}
               onRemove={(id) => setItems((prev) => prev.filter((i) => i.id !== id))}
               onDownloadAll={handleDownloadAll}
               onPrint={handlePrint}
+              onSave={handleSave}
               downloading={downloading}
+              saveStatus={saveStatus}
             />
           </div>
         </div>
