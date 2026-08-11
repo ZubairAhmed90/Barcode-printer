@@ -1,4 +1,5 @@
 import type { LabelItem } from '../types'
+import { buildBarcodeValue } from './barcodePayload'
 import { renderLabelToCanvas } from './renderLabel'
 
 const DPI = 203
@@ -23,7 +24,14 @@ export function labelToZpl(
   const padY = Math.round(ll * 0.04)
   const name = escapeZpl(item.productName.trim() || 'Untitled')
   const price = escapeZpl(item.price.trim())
-  const code = escapeZpl(item.code)
+  const barcodeValue = escapeZpl(
+    buildBarcodeValue({
+      format: item.format,
+      productName: item.productName,
+      price: item.price,
+      sku: item.code,
+    }),
+  )
 
   const nameH = Math.round(ll * 0.16)
   const priceH = price ? Math.round(ll * 0.13) : 0
@@ -51,23 +59,19 @@ export function labelToZpl(
     y += priceH + gap
   }
 
-  const barH = Math.max(
-    30,
-    ll - y - codeH - gap - padY,
-  )
-  // ^BY module width, ratio, bar height — then ^BC Code 128
+  const barH = Math.max(30, ll - y - codeH - gap - padY)
   const byModule = Math.max(2, Math.min(3, Math.round(pw / 180)))
   if (item.format === 'EAN13') {
     lines.push(
-      `^FO${padX},${y}^BY${byModule},2,${barH}^BEN,${barH},Y,N^FD${code}^FS`,
+      `^FO${padX},${y}^BY${byModule},2,${barH}^BEN,${barH},Y,N^FD${barcodeValue}^FS`,
     )
   } else if (item.format === 'UPC') {
     lines.push(
-      `^FO${padX},${y}^BY${byModule},2,${barH}^BUN,${barH},Y,N,N^FD${code}^FS`,
+      `^FO${padX},${y}^BY${byModule},2,${barH}^BUN,${barH},Y,N,N^FD${barcodeValue}^FS`,
     )
   } else {
     lines.push(
-      `^FO${padX},${y}^BY${byModule},2,${barH}^BCN,${barH},Y,N,N^FD${code}^FS`,
+      `^FO${padX},${y}^BY${byModule},2,${barH}^BCN,${barH},Y,N,N^FD${barcodeValue}^FS`,
     )
   }
 

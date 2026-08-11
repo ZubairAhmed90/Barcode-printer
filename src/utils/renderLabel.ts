@@ -1,5 +1,9 @@
 import JsBarcode from 'jsbarcode'
 import type { BarcodeFormat } from '../types'
+import {
+  barcodeDisplayText,
+  buildBarcodeValue,
+} from './barcodePayload'
 
 const DPI = 203
 
@@ -61,8 +65,8 @@ function buildSizedBarcode(
 }
 
 /**
- * Top-aligned label that fills most of the sticker width, with a bottom
- * buffer so Zebra/Chrome clipping does not cut barcode digits.
+ * Top-aligned label. Code128 barcodes encode name|price|SKU so scans
+ * return all product fields.
  */
 export function renderLabelToCanvas(opts: {
   productName: string
@@ -89,11 +93,18 @@ export function renderLabelToCanvas(opts: {
 
   const padX = Math.max(6, Math.round(width * 0.04))
   const padTop = Math.max(3, Math.round(height * 0.03))
-  // Keep bottom clear — printer often clips the trailing edge
   const padBottom = Math.max(8, Math.round(height * 0.08))
   const innerW = width - padX * 2
   const contentH = height - padTop - padBottom
   const hasPrice = Boolean(opts.price.trim())
+
+  const barcodeValue = buildBarcodeValue({
+    format: opts.format,
+    productName: opts.productName,
+    price: opts.price,
+    sku: opts.code,
+  })
+  const displayValue = barcodeDisplayText(barcodeValue)
 
   const nameBand = Math.round(contentH * (hasPrice ? 0.2 : 0.22))
   const priceBand = hasPrice ? Math.round(contentH * 0.16) : 0
@@ -125,7 +136,7 @@ export function renderLabelToCanvas(opts: {
 
   const barHeight = Math.round(barcodeBand * 0.88)
   const barcodeCanvas = buildSizedBarcode(
-    opts.code,
+    barcodeValue,
     opts.format,
     barHeight,
     innerW,
@@ -145,9 +156,13 @@ export function renderLabelToCanvas(opts: {
   )
   y += barcodeBand + gap
 
-  const codeSize = Math.max(9, Math.min(14, Math.round(codeBand * 0.75)))
+  let codeSize = Math.max(8, Math.min(12, Math.round(codeBand * 0.7)))
   ctx.font = `500 ${codeSize}px "IBM Plex Sans", ui-monospace, monospace`
-  ctx.fillText(opts.code, width / 2, y + codeBand / 2, innerW)
+  while (codeSize > 7 && ctx.measureText(displayValue).width > innerW) {
+    codeSize -= 1
+    ctx.font = `500 ${codeSize}px "IBM Plex Sans", ui-monospace, monospace`
+  }
+  ctx.fillText(displayValue, width / 2, y + codeBand / 2, innerW)
 
   return canvas
 }

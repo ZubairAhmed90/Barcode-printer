@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import JsBarcode from 'jsbarcode'
 import type { LabelItem } from '../types'
+import { buildBarcodeValue } from '../utils/barcodePayload'
 import { downloadLabelPng } from '../utils/download'
 
 interface BatchListProps {
@@ -13,11 +14,17 @@ interface BatchListProps {
 
 function Thumbnail({ item }: { item: LabelItem }) {
   const svgRef = useRef<SVGSVGElement>(null)
+  const barcodeValue = buildBarcodeValue({
+    format: item.format,
+    productName: item.productName,
+    price: item.price,
+    sku: item.code,
+  })
 
   useEffect(() => {
     if (!svgRef.current) return
     try {
-      JsBarcode(svgRef.current, item.code, {
+      JsBarcode(svgRef.current, barcodeValue, {
         format: item.format,
         width: 1,
         height: 28,
@@ -29,7 +36,7 @@ function Thumbnail({ item }: { item: LabelItem }) {
     } catch {
       // ignore
     }
-  }, [item.code, item.format])
+  }, [barcodeValue, item.format])
 
   return <svg ref={svgRef} className="h-7 w-20" />
 }
@@ -100,8 +107,12 @@ export function BatchList({
                   {item.productName}
                 </p>
                 <p className="truncate font-mono text-xs text-stone-500">
-                  {item.code}
-                  {item.price ? ` · ${item.price}` : ''}
+                  {buildBarcodeValue({
+                    format: item.format,
+                    productName: item.productName,
+                    price: item.price,
+                    sku: item.code,
+                  })}
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-1 no-print">

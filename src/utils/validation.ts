@@ -1,4 +1,5 @@
 import type { BarcodeFormat } from '../types'
+import { buildBarcodeValue } from './barcodePayload'
 
 export function validateBarcodeInput(
   format: BarcodeFormat,
@@ -25,8 +26,22 @@ export function validateBarcodeInput(
 export function canGenerateBarcode(
   format: BarcodeFormat,
   code: string,
+  productName = 'Product',
+  price = '',
 ): boolean {
-  const trimmed = code.trim()
-  if (!trimmed) return false
-  return validateBarcodeInput(format, trimmed) === null
+  const sku = code.trim()
+  if (!sku) return false
+  if (validateBarcodeInput(format, sku) !== null) return false
+
+  try {
+    const payload = buildBarcodeValue({
+      format,
+      productName,
+      price,
+      sku,
+    })
+    return payload.length > 0
+  } catch {
+    return false
+  }
 }

@@ -60,8 +60,7 @@ export function LabelForm({
 
       <div className="flex flex-col gap-1.5">
         <label htmlFor="sku" className="text-sm font-medium text-stone-700">
-          Barcode data / SKU{' '}
-          <span className="font-normal text-stone-400">(optional)</span>
+          SKU <span className="font-normal text-stone-400">(optional)</span>
         </label>
         <input
           id="sku"
@@ -73,11 +72,21 @@ export function LabelForm({
           inputMode={draft.format === 'CODE128' ? 'text' : 'numeric'}
         />
         {error && <p className="text-sm text-red-600">{error}</p>}
+        {!error && draft.format === 'CODE128' && (
+          <p className="text-xs text-stone-500">
+            Code128 encodes <span className="font-medium">name|price|SKU</span> —
+            scanning returns all three fields.
+          </p>
+        )}
         {!error && draft.format === 'EAN13' && (
-          <p className="text-xs text-stone-400">EAN-13: enter 12 digits</p>
+          <p className="text-xs text-stone-400">
+            EAN-13: 12 digits only (cannot store name/price — use Code128 for that).
+          </p>
         )}
         {!error && draft.format === 'UPC' && (
-          <p className="text-xs text-stone-400">UPC-A: enter 11 digits</p>
+          <p className="text-xs text-stone-400">
+            UPC-A: 11 digits only (cannot store name/price — use Code128 for that).
+          </p>
         )}
       </div>
 
