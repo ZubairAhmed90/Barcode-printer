@@ -76,9 +76,6 @@ export function LabelPreview({
           </div>
         )}
       </div>
-      <p className="text-center text-xs text-stone-400">
-        Preview matches print and PNG download
-      </p>
     </div>
   )
 }
