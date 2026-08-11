@@ -7,10 +7,26 @@ import type { LabelDraft, LabelDimensions, LabelItem } from './types'
 import { downloadAllAsZip } from './utils/download'
 import { validateBarcodeInput } from './utils/validation'
 
-const DEFAULT_SIZE: LabelDimensions = { widthIn: 2.2, heightIn: 2 }
+// Zebra LP/TLP 2824: max print width 2.2" @ 203 DPI
+const DEFAULT_SIZE: LabelDimensions = { widthIn: 2.2, heightIn: 1.25 }
+
+const LP2824_PRESETS: { label: string; size: LabelDimensions }[] = [
+  { label: '2.2″ × 1.25″', size: { widthIn: 2.2, heightIn: 1.25 } },
+  { label: '2″ × 1″', size: { widthIn: 2, heightIn: 1 } },
+  { label: '1.5″ × 1″', size: { widthIn: 1.5, heightIn: 1 } },
+  { label: '2.2″ × 2″', size: { widthIn: 2.2, heightIn: 2 } },
+]
 
 function createId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+function clampSize(next: LabelDimensions): LabelDimensions {
+  return {
+    // LP2824 max printable width is 2.2"
+    widthIn: Math.min(2.2, Math.max(0.5, next.widthIn)),
+    heightIn: Math.min(6, Math.max(0.38, next.heightIn)),
+  }
 }
 
 export default function App() {
@@ -125,54 +141,79 @@ export default function App() {
             </div>
 
             {showSize && (
-              <div className="grid grid-cols-2 gap-3 rounded-md border border-stone-200 bg-stone-50 p-3">
-                <div className="flex flex-col gap-1">
-                  <label htmlFor="widthIn" className="text-xs font-medium text-stone-600">
-                    Width (in)
-                  </label>
-                  <input
-                    id="widthIn"
-                    type="number"
-                    min={0.5}
-                    max={8}
-                    step={0.1}
-                    value={size.widthIn}
-                    onChange={(e) =>
-                      setSize((s) => ({
-                        ...s,
-                        widthIn: Math.max(0.5, Number(e.target.value) || s.widthIn),
-                      }))
-                    }
-                    className="rounded-md border border-stone-300 bg-white px-2 py-1.5 text-sm outline-none focus:border-teal-600"
-                  />
+              <div className="flex flex-col gap-3 rounded-md border border-stone-200 bg-stone-50 p-3">
+                <p className="text-xs text-stone-500">
+                  Zebra LP2824 — max width 2.2″ @ 203 DPI. Size must match your
+                  physical labels <span className="whitespace-nowrap">and</span> Windows
+                  printer preferences.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {LP2824_PRESETS.map((preset) => {
+                    const active =
+                      size.widthIn === preset.size.widthIn &&
+                      size.heightIn === preset.size.heightIn
+                    return (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => setSize(preset.size)}
+                        className={`rounded-md border px-2.5 py-1 text-xs font-medium transition ${
+                          active
+                            ? 'border-teal-700 bg-teal-700 text-white'
+                            : 'border-stone-300 bg-white text-stone-700 hover:border-teal-600'
+                        }`}
+                      >
+                        {preset.label}
+                      </button>
+                    )
+                  })}
                 </div>
-                <div className="flex flex-col gap-1">
-                  <label htmlFor="heightIn" className="text-xs font-medium text-stone-600">
-                    Height (in)
-                  </label>
-                  <input
-                    id="heightIn"
-                    type="number"
-                    min={0.5}
-                    max={8}
-                    step={0.1}
-                    value={size.heightIn}
-                    onChange={(e) =>
-                      setSize((s) => ({
-                        ...s,
-                        heightIn: Math.max(0.5, Number(e.target.value) || s.heightIn),
-                      }))
-                    }
-                    className="rounded-md border border-stone-300 bg-white px-2 py-1.5 text-sm outline-none focus:border-teal-600"
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label htmlFor="widthIn" className="text-xs font-medium text-stone-600">
+                      Width (in)
+                    </label>
+                    <input
+                      id="widthIn"
+                      type="number"
+                      min={0.5}
+                      max={2.2}
+                      step={0.05}
+                      value={size.widthIn}
+                      onChange={(e) =>
+                        setSize((s) =>
+                          clampSize({
+                            ...s,
+                            widthIn: Number(e.target.value) || s.widthIn,
+                          }),
+                        )
+                      }
+                      className="rounded-md border border-stone-300 bg-white px-2 py-1.5 text-sm outline-none focus:border-teal-600"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label htmlFor="heightIn" className="text-xs font-medium text-stone-600">
+                      Height (in)
+                    </label>
+                    <input
+                      id="heightIn"
+                      type="number"
+                      min={0.38}
+                      max={6}
+                      step={0.05}
+                      value={size.heightIn}
+                      onChange={(e) =>
+                        setSize((s) =>
+                          clampSize({
+                            ...s,
+                            heightIn: Number(e.target.value) || s.heightIn,
+                          }),
+                        )
+                      }
+                      className="rounded-md border border-stone-300 bg-white px-2 py-1.5 text-sm outline-none focus:border-teal-600"
+                    />
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setSize(DEFAULT_SIZE)}
-                  className="col-span-2 text-left text-xs text-stone-500 hover:text-stone-800"
-                >
-                  Reset to 2.2″ × 2″
-                </button>
               </div>
             )}
 

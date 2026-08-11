@@ -8,33 +8,52 @@ interface PrintLabelsProps {
   heightIn: number
 }
 
-function PrintLabel({ item }: { item: LabelItem }) {
+function PrintLabel({
+  item,
+  widthIn,
+  heightIn,
+}: {
+  item: LabelItem
+  widthIn: number
+  heightIn: number
+}) {
   const [src, setSrc] = useState<string | null>(null)
+  // Prefer current print size so changing Label size updates print layout
+  const w = widthIn
+  const h = heightIn
 
   useEffect(() => {
-    let revoked = false
-    let objectUrl: string | null = null
+    let cancelled = false
 
     try {
-      const canvas = renderLabelToCanvas(item)
-      objectUrl = canvas.toDataURL('image/png')
-      if (!revoked) setSrc(objectUrl)
+      const canvas = renderLabelToCanvas({
+        productName: item.productName,
+        price: item.price,
+        code: item.code,
+        format: item.format,
+        widthIn: w,
+        heightIn: h,
+      })
+      const dataUrl = canvas.toDataURL('image/png')
+      if (!cancelled) setSrc(dataUrl)
     } catch {
-      if (!revoked) setSrc(null)
+      if (!cancelled) setSrc(null)
     }
 
     return () => {
-      revoked = true
+      cancelled = true
     }
-  }, [item])
+  }, [item.productName, item.price, item.code, item.format, w, h])
 
   return (
     <div
       className="print-label"
       style={
         {
-          width: `${item.widthIn}in`,
-          height: `${item.heightIn}in`,
+          width: `${w}in`,
+          height: `${h}in`,
+          ['--label-w' as string]: `${w}in`,
+          ['--label-h' as string]: `${h}in`,
         } as CSSProperties
       }
     >
@@ -43,8 +62,6 @@ function PrintLabel({ item }: { item: LabelItem }) {
           src={src}
           alt={item.productName}
           className="print-label-image"
-          width={Math.round(item.widthIn * 203)}
-          height={Math.round(item.heightIn * 203)}
         />
       ) : null}
     </div>
@@ -74,7 +91,12 @@ export function PrintLabels({ items, widthIn, heightIn }: PrintLabelsProps) {
       }
     >
       {items.map((item) => (
-        <PrintLabel key={item.id} item={item} />
+        <PrintLabel
+          key={item.id}
+          item={item}
+          widthIn={widthIn}
+          heightIn={heightIn}
+        />
       ))}
     </div>
   )

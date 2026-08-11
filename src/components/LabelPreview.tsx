@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
-import JsBarcode from 'jsbarcode'
 import type { BarcodeFormat } from '../types'
 import { canGenerateBarcode } from '../utils/validation'
+import { renderLabelToCanvas } from '../utils/renderLabel'
 
 interface LabelPreviewProps {
   productName: string
@@ -20,26 +20,32 @@ export function LabelPreview({
   widthIn,
   heightIn,
 }: LabelPreviewProps) {
-  const svgRef = useRef<SVGSVGElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
   const valid = canGenerateBarcode(format, code)
 
   useEffect(() => {
-    if (!svgRef.current || !valid) return
+    const el = canvasRef.current
+    if (!el || !valid) return
+
     try {
-      JsBarcode(svgRef.current, code.trim(), {
+      const source = renderLabelToCanvas({
+        productName,
+        price,
+        code: code.trim(),
         format,
-        width: 1.6,
-        height: 48,
-        displayValue: true,
-        fontSize: 12,
-        margin: 4,
-        background: '#ffffff',
-        lineColor: '#000000',
+        widthIn,
+        heightIn,
       })
+      el.width = source.width
+      el.height = source.height
+      const ctx = el.getContext('2d')
+      if (!ctx) return
+      ctx.clearRect(0, 0, el.width, el.height)
+      ctx.drawImage(source, 0, 0)
     } catch {
       // Invalid barcode data for the selected format
     }
-  }, [code, format, valid])
+  }, [productName, price, code, format, widthIn, heightIn, valid])
 
   return (
     <div className="flex flex-col gap-2">
@@ -52,43 +58,27 @@ export function LabelPreview({
         </span>
       </div>
 
-      <div
-        className="label-preview mx-auto flex flex-col items-center justify-between overflow-hidden border border-stone-300 bg-white shadow-sm"
-        style={{
-          width: `${widthIn}in`,
-          height: `${heightIn}in`,
-          maxWidth: '100%',
-          padding: '0.12in 0.1in',
-        }}
-      >
-        <p
-          className="w-full truncate text-center font-semibold text-stone-900"
-          style={{ fontSize: '0.14in', lineHeight: 1.2 }}
-        >
-          {productName.trim() || 'Product name'}
-        </p>
-
-        <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
-          {valid ? (
-            <svg ref={svgRef} className="max-h-full max-w-full" />
-          ) : (
+      <div className="mx-auto w-full max-w-full overflow-hidden rounded-sm border border-stone-300 bg-white shadow-sm">
+        {valid ? (
+          <canvas
+            ref={canvasRef}
+            className="mx-auto block h-auto max-w-full"
+            style={{ width: `${widthIn}in`, maxWidth: '100%' }}
+          />
+        ) : (
+          <div
+            className="flex items-center justify-center"
+            style={{ width: `${widthIn}in`, height: `${heightIn}in`, maxWidth: '100%' }}
+          >
             <p className="px-2 text-center text-xs text-stone-400">
               Enter valid barcode data to preview
             </p>
-          )}
-        </div>
-
-        {price.trim() ? (
-          <p
-            className="w-full text-center font-bold text-stone-900"
-            style={{ fontSize: '0.13in' }}
-          >
-            {price.trim()}
-          </p>
-        ) : (
-          <div style={{ height: '0.08in' }} />
+          </div>
         )}
       </div>
+      <p className="text-center text-xs text-stone-400">
+        Preview matches print and PNG download
+      </p>
     </div>
   )
 }
