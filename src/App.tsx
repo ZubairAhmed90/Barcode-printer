@@ -2,9 +2,9 @@ import { useMemo, useState } from 'react'
 import { BatchList } from './components/BatchList'
 import { LabelForm } from './components/LabelForm'
 import { LabelPreview } from './components/LabelPreview'
-import { PrintLabels } from './components/PrintLabels'
 import type { LabelDraft, LabelDimensions, LabelItem } from './types'
 import { downloadAllAsZip } from './utils/download'
+import { printLabelsInWindow } from './utils/print'
 import { validateBarcodeInput } from './utils/validation'
 
 // Zebra LP/TLP 2824: max print width 2.2" @ 203 DPI — short stock is typical
@@ -108,8 +108,14 @@ export default function App() {
     }
   }
 
-  function handlePrint() {
-    window.print()
+  async function handlePrint() {
+    try {
+      await printLabelsInWindow(items, size.widthIn, size.heightIn)
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error ? err.message : 'Could not open print window.',
+      )
+    }
   }
 
   return (
@@ -143,9 +149,9 @@ export default function App() {
             {showSize && (
               <div className="flex flex-col gap-3 rounded-md border border-stone-200 bg-stone-50 p-3">
                 <p className="text-xs text-stone-500">
-                  Zebra LP2824 — max width 2.2″ @ 203 DPI. Size must match your
-                  physical labels <span className="whitespace-nowrap">and</span> Windows
-                  printer preferences.
+                  Zebra LP2824 — max width 2.2″ @ 203 DPI. Match this size in
+                  Windows printer preferences. When printing: Margins = None,
+                  no headers/footers.
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {LP2824_PRESETS.map((preset) => {
@@ -246,8 +252,6 @@ export default function App() {
           </div>
         </div>
       </div>
-
-      <PrintLabels items={items} widthIn={size.widthIn} heightIn={size.heightIn} />
     </div>
   )
 }

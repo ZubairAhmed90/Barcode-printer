@@ -7,7 +7,7 @@ interface BatchListProps {
   items: LabelItem[]
   onRemove: (id: string) => void
   onDownloadAll: () => void
-  onPrint: () => void
+  onPrint: () => void | Promise<void>
   downloading: boolean
 }
 

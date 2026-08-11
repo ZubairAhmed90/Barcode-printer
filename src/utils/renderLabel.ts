@@ -40,8 +40,7 @@ function buildSizedBarcode(
   const canvas = document.createElement('canvas')
   let moduleWidth = 1.5
 
-  // Increase module width until barcode is close to the target sticker width
-  for (let w = 1.5; w <= 5; w += 0.25) {
+  for (let w = 1.5; w <= 4.5; w += 0.25) {
     renderBarcodeToCanvas(canvas, code, format, {
       width: w,
       height: barHeight,
@@ -49,7 +48,7 @@ function buildSizedBarcode(
       margin: 1,
     })
     moduleWidth = w
-    if (canvas.width >= targetWidth * 0.92) break
+    if (canvas.width >= targetWidth * 0.9) break
   }
 
   renderBarcodeToCanvas(canvas, code, format, {
@@ -62,7 +61,8 @@ function buildSizedBarcode(
 }
 
 /**
- * Fills the sticker edge-to-edge with small even padding.
+ * Top-aligned label that fills most of the sticker width, with a bottom
+ * buffer so Zebra/Chrome clipping does not cut barcode digits.
  */
 export function renderLabelToCanvas(opts: {
   productName: string
@@ -87,26 +87,27 @@ export function renderLabelToCanvas(opts: {
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
 
-  const padX = Math.max(6, Math.round(width * 0.035))
-  const padY = Math.max(4, Math.round(height * 0.035))
+  const padX = Math.max(6, Math.round(width * 0.04))
+  const padTop = Math.max(3, Math.round(height * 0.03))
+  // Keep bottom clear — printer often clips the trailing edge
+  const padBottom = Math.max(8, Math.round(height * 0.08))
   const innerW = width - padX * 2
-  const innerH = height - padY * 2
+  const contentH = height - padTop - padBottom
   const hasPrice = Boolean(opts.price.trim())
 
-  const nameBand = Math.round(innerH * (hasPrice ? 0.17 : 0.18))
-  const priceBand = hasPrice ? Math.round(innerH * 0.14) : 0
-  const codeBand = Math.round(innerH * 0.13)
-  const gap = Math.max(2, Math.round(innerH * 0.02))
+  const nameBand = Math.round(contentH * (hasPrice ? 0.2 : 0.22))
+  const priceBand = hasPrice ? Math.round(contentH * 0.16) : 0
+  const codeBand = Math.round(contentH * 0.14)
+  const gap = Math.max(2, Math.round(contentH * 0.025))
   const barcodeBand = Math.max(
     28,
-    innerH - nameBand - priceBand - codeBand - gap * (hasPrice ? 3 : 2),
+    contentH - nameBand - priceBand - codeBand - gap * (hasPrice ? 3 : 2),
   )
 
-  let y = padY
+  let y = padTop
 
-  // Name
   const name = opts.productName.trim() || 'Untitled'
-  let nameSize = Math.max(12, Math.min(20, Math.round(nameBand * 0.75)))
+  let nameSize = Math.max(12, Math.min(22, Math.round(nameBand * 0.78)))
   ctx.font = `600 ${nameSize}px "IBM Plex Sans", system-ui, sans-serif`
   while (nameSize > 9 && ctx.measureText(name).width > innerW) {
     nameSize -= 1
@@ -115,23 +116,20 @@ export function renderLabelToCanvas(opts: {
   ctx.fillText(name, width / 2, y + nameBand / 2, innerW)
   y += nameBand + gap
 
-  // Price
   if (hasPrice) {
-    const priceSize = Math.max(11, Math.min(18, Math.round(priceBand * 0.72)))
+    const priceSize = Math.max(11, Math.min(18, Math.round(priceBand * 0.75)))
     ctx.font = `700 ${priceSize}px "IBM Plex Sans", system-ui, sans-serif`
     ctx.fillText(opts.price.trim(), width / 2, y + priceBand / 2, innerW)
     y += priceBand + gap
   }
 
-  // Barcode — sized to fill the sticker width, short enough for the band
-  const barHeight = Math.round(barcodeBand * 0.9)
+  const barHeight = Math.round(barcodeBand * 0.88)
   const barcodeCanvas = buildSizedBarcode(
     opts.code,
     opts.format,
     barHeight,
     innerW,
   )
-
   const scale = Math.min(
     innerW / barcodeCanvas.width,
     barcodeBand / barcodeCanvas.height,
@@ -147,8 +145,7 @@ export function renderLabelToCanvas(opts: {
   )
   y += barcodeBand + gap
 
-  // Code
-  const codeSize = Math.max(9, Math.min(14, Math.round(codeBand * 0.72)))
+  const codeSize = Math.max(9, Math.min(14, Math.round(codeBand * 0.75)))
   ctx.font = `500 ${codeSize}px "IBM Plex Sans", ui-monospace, monospace`
   ctx.fillText(opts.code, width / 2, y + codeBand / 2, innerW)
 
