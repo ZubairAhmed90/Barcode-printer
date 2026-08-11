@@ -36,7 +36,7 @@
 
 @media print {
   @page {
-    size: var(--label-w, 2.2in) var(--label-h, 1.25in);
+    size: var(--label-w, 2.2in) var(--label-h, 1in);
     margin: 0 !important;
   }
 
@@ -66,7 +66,7 @@
 
   .print-label {
     width: var(--label-w, 2.2in) !important;
-    height: var(--label-h, 1.25in) !important;
+    height: var(--label-h, 1in) !important;
     box-sizing: border-box !important;
     margin: 0 !important;
     padding: 0 !important;
@@ -78,7 +78,7 @@
   .print-label-image {
     display: block !important;
     width: var(--label-w, 2.2in) !important;
-    height: var(--label-h, 1.25in) !important;
+    height: var(--label-h, 1in) !important;
     max-width: none !important;
     max-height: none !important;
     object-fit: fill !important;

@@ -7,14 +7,14 @@ import type { LabelDraft, LabelDimensions, LabelItem } from './types'
 import { downloadAllAsZip } from './utils/download'
 import { validateBarcodeInput } from './utils/validation'
 
-// Zebra LP/TLP 2824: max print width 2.2" @ 203 DPI
-const DEFAULT_SIZE: LabelDimensions = { widthIn: 2.2, heightIn: 1.25 }
+// Zebra LP/TLP 2824: max print width 2.2" @ 203 DPI — short stock is typical
+const DEFAULT_SIZE: LabelDimensions = { widthIn: 2.2, heightIn: 1 }
 
 const LP2824_PRESETS: { label: string; size: LabelDimensions }[] = [
-  { label: '2.2″ × 1.25″', size: { widthIn: 2.2, heightIn: 1.25 } },
+  { label: '2.2″ × 1″', size: { widthIn: 2.2, heightIn: 1 } },
   { label: '2″ × 1″', size: { widthIn: 2, heightIn: 1 } },
+  { label: '2.2″ × 1.25″', size: { widthIn: 2.2, heightIn: 1.25 } },
   { label: '1.5″ × 1″', size: { widthIn: 1.5, heightIn: 1 } },
-  { label: '2.2″ × 2″', size: { widthIn: 2.2, heightIn: 2 } },
 ]
 
 function createId(): string {

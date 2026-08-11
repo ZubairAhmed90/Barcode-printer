@@ -32,9 +32,8 @@ export function renderBarcodeToCanvas(
 }
 
 /**
- * Renders a complete label. Content is packed from the top with a bottom
- * safe margin so barcode bars + digits stay on physical stickers even when
- * the printer crops a little from the bottom.
+ * Wide, short LP2824-friendly layout:
+ * name (+ price) on one line → full-width short barcode → code digits.
  */
 export function renderLabelToCanvas(opts: {
   productName: string
@@ -56,72 +55,85 @@ export function renderLabelToCanvas(opts: {
   ctx.fillStyle = '#ffffff'
   ctx.fillRect(0, 0, width, height)
   ctx.fillStyle = '#000000'
-  ctx.textAlign = 'center'
+
+  const padX = Math.round(width * 0.04)
+  const padY = Math.round(height * 0.06)
+  const hasPrice = Boolean(opts.price.trim())
+  const innerW = width - padX * 2
+
+  // Fixed compact heights (not huge % of label) so short stickers fit
+  const nameSize = Math.max(11, Math.min(16, Math.round(height * 0.14)))
+  const codeSize = Math.max(9, Math.min(12, Math.round(height * 0.11)))
+  const nameH = Math.round(nameSize * 1.2)
+  const codeH = Math.round(codeSize * 1.25)
+  const gap = Math.max(2, Math.round(height * 0.03))
+
+  // Barcode: short bars, stretched to nearly full label width
+  const barcodeH = Math.max(
+    18,
+    Math.min(Math.round(height * 0.28), height - padY * 2 - nameH - codeH - gap * 3),
+  )
+
+  const blockH = nameH + gap + barcodeH + gap + codeH
+  // Center the whole block vertically with a little bias toward the top
+  let y = Math.max(padY, Math.round((height - blockH) * 0.35))
+
+  // —— Name (+ optional price on the same row) ——
+  const name = opts.productName.trim() || 'Untitled'
   ctx.textBaseline = 'middle'
 
-  const padX = Math.round(width * 0.07)
-  const padTop = Math.round(height * 0.04)
-  // Keep the bottom ~18% clear — many label printers crop the trailing edge
-  const safeBottom = Math.round(height * 0.18)
-  const hasPrice = Boolean(opts.price.trim())
-  const contentBottom = height - safeBottom
-
-  let y = padTop
-
-  // —— Product name ——
-  const name = opts.productName.trim() || 'Untitled'
-  let nameSize = Math.min(22, Math.round(height * 0.08))
-  ctx.font = `600 ${nameSize}px "IBM Plex Sans", system-ui, sans-serif`
-  while (nameSize > 10 && ctx.measureText(name).width > width - padX * 2) {
-    nameSize -= 1
-    ctx.font = `600 ${nameSize}px "IBM Plex Sans", system-ui, sans-serif`
-  }
-  const nameH = Math.round(nameSize * 1.25)
-  ctx.fillText(name, width / 2, y + nameH / 2, width - padX * 2)
-  y += nameH + Math.round(height * 0.025)
-
-  // —— Optional price (under name, above barcode) ——
   if (hasPrice) {
-    const priceSize = Math.min(18, Math.round(height * 0.07))
-    ctx.font = `700 ${priceSize}px "IBM Plex Sans", system-ui, sans-serif`
-    const priceH = Math.round(priceSize * 1.2)
-    ctx.fillText(opts.price.trim(), width / 2, y + priceH / 2, width - padX * 2)
-    y += priceH + Math.round(height * 0.02)
+    const price = opts.price.trim()
+    ctx.font = `700 ${nameSize}px "IBM Plex Sans", system-ui, sans-serif`
+    const priceW = ctx.measureText(price).width
+    const priceX = width - padX - priceW / 2
+
+    ctx.textAlign = 'left'
+    ctx.font = `600 ${nameSize}px "IBM Plex Sans", system-ui, sans-serif`
+    const maxNameW = innerW - priceW - Math.round(width * 0.06)
+    // Truncate name if needed
+    let drawName = name
+    while (drawName.length > 1 && ctx.measureText(drawName).width > maxNameW) {
+      drawName = drawName.slice(0, -1)
+    }
+    if (drawName !== name) drawName = `${drawName.slice(0, -1)}…`
+
+    ctx.fillText(drawName, padX, y + nameH / 2)
+    ctx.textAlign = 'center'
+    ctx.font = `700 ${nameSize}px "IBM Plex Sans", system-ui, sans-serif`
+    ctx.fillText(price, priceX, y + nameH / 2)
+  } else {
+    ctx.textAlign = 'center'
+    ctx.font = `600 ${nameSize}px "IBM Plex Sans", system-ui, sans-serif`
+    let size = nameSize
+    while (size > 9 && ctx.measureText(name).width > innerW) {
+      size -= 1
+      ctx.font = `600 ${size}px "IBM Plex Sans", system-ui, sans-serif`
+    }
+    ctx.fillText(name, width / 2, y + nameH / 2, innerW)
   }
+  y += nameH + gap
 
-  // —— Barcode bars (no built-in text — we draw digits ourselves) ——
-  const codeFontSize = Math.max(10, Math.round(height * 0.05))
-  const codeH = Math.round(codeFontSize * 1.35)
-  const gapBeforeCode = Math.round(height * 0.015)
-  const remainingForBars = Math.max(
-    20,
-    contentBottom - y - codeH - gapBeforeCode,
-  )
-  // Keep bars modest so digits always fit above the safe bottom
-  const barcodeBarHeight = Math.min(
-    remainingForBars,
-    Math.round(height * 0.32),
-  )
-
+  // —— Wide, short barcode (stretch to full inner width) ——
   const barcodeCanvas = document.createElement('canvas')
+  // Use a modest module width; we stretch horizontally to fill the label
   renderBarcodeToCanvas(barcodeCanvas, opts.code, opts.format, {
-    width: 2,
-    height: barcodeBarHeight,
+    width: 1.5,
+    height: barcodeH,
     displayValue: false,
-    margin: 1,
+    margin: 0,
   })
 
-  const maxBarcodeWidth = width - padX * 2
-  const scale = Math.min(maxBarcodeWidth / barcodeCanvas.width, 1)
-  const drawW = barcodeCanvas.width * scale
-  const drawH = barcodeCanvas.height * scale
-  const drawX = (width - drawW) / 2
+  const drawW = innerW
+  const drawH = barcodeH
+  const drawX = padX
   ctx.drawImage(barcodeCanvas, drawX, y, drawW, drawH)
-  y += drawH + gapBeforeCode
+  y += drawH + gap
 
-  // —— Human-readable code ——
-  ctx.font = `500 ${codeFontSize}px "IBM Plex Sans", ui-monospace, monospace`
-  ctx.fillText(opts.code, width / 2, y + codeH / 2, width - padX * 2)
+  // —— Code under barcode ——
+  ctx.textAlign = 'center'
+  ctx.font = `500 ${codeSize}px "IBM Plex Sans", ui-monospace, monospace`
+  ctx.fillText(opts.code, width / 2, y + codeH / 2, innerW)
 
   return canvas
 }
